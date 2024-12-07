@@ -23,9 +23,9 @@ app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['ALLOWED_EXTENSIONS'] = {'pdf'}
 
 # Initialize MongoDB Client
-client = MongoClient(mongo_uri)
+client = MongoClient("mongodb+srv://anirudhrandw:kn3Y2Nuvf9LNj5Z2@vectordb.tjc9z.mongodb.net/?retryWrites=true&w=majority&appName=vectordb")
 db = client['test1']
-collection = db['testing1']
+collection = db['testing2']
 
 # Initialize LangChain components
 llm = ChatOpenAI(model="gpt-4", temperature=0.7, openai_api_key=openai_api_key)
@@ -63,12 +63,15 @@ def store_embeddings_in_mongo(text):
     chunks = chunk_text(text)
     embeddings = []
     
+    # Add a unique pitchdeck identifier to each document
+    pitchdeck_id = str(ObjectId())  # You can generate your own identifier if needed
+    
     for chunk in chunks:
         embedding = embedding_model.embed_query(chunk)
         embeddings.append(embedding)
         
-        # Store each chunk along with its embedding in MongoDB
-        result = collection.insert_one({"text": chunk, "embedding": embedding})
+        # Store each chunk along with its embedding and pitchdeck_id in MongoDB
+        result = collection.insert_one({"text": chunk, "embedding": embedding, "pitchdeck_id": pitchdeck_id})
         
         # Print confirmation in the CLI for each document stored
         if result.inserted_id:
@@ -116,6 +119,9 @@ def upload_file():
     file = request.files['file']
     if file.filename == '' or not allowed_file(file.filename):
         return render_template('index.html', error="Invalid file type.", suggested_questions=SUGGESTED_QUESTIONS)
+
+    # Delete previous pitch deck data before processing the new one
+    collection.delete_many({})  # Deletes all documents in the collection. Adjust if you need to filter by pitch deck ID or other conditions.
 
     # Save the file and process its content
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], file.filename)
